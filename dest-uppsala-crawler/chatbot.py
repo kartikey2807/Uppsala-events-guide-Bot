@@ -17,22 +17,21 @@ from PIL import Image
 import chromadb
 
 from langchain_community.document_loaders import JSONLoader
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings   
+from langchain_google_genai import ChatGoogleGenerativeAI  
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.memory import ConversationBufferMemory
 from langchain_community.document_loaders import JSONLoader
 from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 
 client = chromadb.PersistentClient(path="./webscr_chunks_chromadb")
+embedding = HuggingFaceEmbeddings(model_name="google/embeddinggemma-300m")
 vector_store_from_client = Chroma(
     client=client,
     collection_name="langchain",
-    embedding_function=GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001", 
-        google_api_key=os.getenv('GEMINI_API_KEY')
-    )
+    embedding_function=embedding
 )
 
 def stream_gemini_response(user_message: str, messages: list, file) -> Iterator[list]:
@@ -60,8 +59,12 @@ def stream_gemini_response(user_message: str, messages: list, file) -> Iterator[
     # )
 
     # get similar documents
-    # docs = vector_store_from_client.similarity_search(user_message, k=4)
-    retriever = vector_store_from_client.as_retriever(search_type="mmr") # retrieve potentially more docs
+    # docs = vector_store_from_client.similarity_search_by_vector(
+    #     embedding=embedding.embed_query(user_message), k=5
+    # )
+    retriever = vector_store_from_client.as_retriever(
+        search_type="mmr", search_kwargs={"k": 5, "lambda_mult": 0.2}
+    ) # retrieve potentially more docs
     docs = retriever.invoke(user_message)
 
     if file:

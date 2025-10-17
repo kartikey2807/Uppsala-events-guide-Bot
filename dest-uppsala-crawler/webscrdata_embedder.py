@@ -5,6 +5,8 @@ import os, time
 from dotenv import load_dotenv
 from langchain_google_genai._common import GoogleGenerativeAIError
 load_dotenv() # should make a .env file, and store GEMINI_API_KEY=AIe4...
+# from sentence_transformers import SentenceTransformer
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 
 ## This code is to be run only once or possibly, minimal number of times (as embedding rate limits are finite).
 
@@ -16,10 +18,11 @@ def webscr_metadata_extractor(record, metadata):
 
 vector_store = Chroma(
     persist_directory='./webscr_chunks_chromadb',
-    embedding_function=GoogleGenerativeAIEmbeddings(
-        model="models/gemini-embedding-001", 
-        google_api_key=os.getenv('GEMINI_API_KEY')
-    )
+    embedding_function=HuggingFaceEmbeddings(model_name="google/embeddinggemma-300m")
+    # GoogleGenerativeAIEmbeddings(
+    #     model="models/gemini-embedding-001", 
+    #     google_api_key=os.getenv('GEMINI_API_KEY')
+    # )
 )
 webscraped='./uppsala_chunks.json'
 loader = JSONLoader(
@@ -39,4 +42,4 @@ for i in range(1,num_batches): #
     
     vector_store.add_documents(documents=docs[start:end])
     print("Embedded from", start, ":", end, ">> on batch:", i, "of", num_batches-1)
-    time.sleep(61)
+    #time.sleep(61)
