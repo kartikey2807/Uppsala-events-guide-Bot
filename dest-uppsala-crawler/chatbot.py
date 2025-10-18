@@ -7,9 +7,7 @@ import time, base64, json
 from typing import Iterator
 from dotenv import load_dotenv
 load_dotenv() # should make a .env file, and store GEMINI_API_KEY=AIe4...
-
-#from google import genai
-#from google.genai import types
+from deep_translator import GoogleTranslator, single_detection
 
 import gradio as gr, os
 from gradio import ChatMessage
@@ -23,19 +21,32 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.memory import ConversationBufferMemory
 from langchain_community.document_loaders import JSONLoader
 from langchain_core.runnables.history import RunnableWithMessageHistory
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings
-from langchain_chroma import Chroma
+from langchain_elasticsearch import DenseVectorStrategy
 
-client = chromadb.PersistentClient(path="./webscr_chunks_chromadb")
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 embedding = HuggingFaceEmbeddings(model_name="google/embeddinggemma-300m")
-vector_store_from_client = Chroma(
-    client=client,
-    collection_name="langchain",
-    embedding_function=embedding
+
+# Option 1 --
+# from langchain_chroma import Chroma
+# client = chromadb.PersistentClient(path="./webscr_chunks_chromadb")
+# vector_store_from_client = Chroma(
+#     client=client,
+#     collection_name="langchain",
+#     embedding_function=embedding
+# )
+
+# Option 2 --
+from langchain_elasticsearch import ElasticsearchStore
+elastic_vector_search = ElasticsearchStore(
+    es_cloud_id=os.getenv('ELASTIC_CLOUD_ID'),
+    es_api_key=os.getenv('ELASTIC_API_KEY'),
+    index_name="langchain_index",
+    embedding=embedding,
+    strategy=DenseVectorStrategy(hybrid=True)
 )
 
 def stream_gemini_response(user_message: str, messages: list, file) -> Iterator[list]:
-    temp = 0.8
+    temp = 0.7
     llm = ChatGoogleGenerativeAI(
         model="gemini-2.5-flash",
         temperature=temp,
@@ -48,25 +59,21 @@ def stream_gemini_response(user_message: str, messages: list, file) -> Iterator[
             "top_p": 0.95
         })
 
-    # TODO
-    # chain_with_history = RunnableWithMessageHistory(
-    #     llm,
-    #     # Uses the get_by_session_id function defined in the example
-    #     # above.
-    #     get_by_session_id,
-    #     input_messages_key="question",
-    #     history_messages_key="history",
-    # )
+    # Translate some swedish information chunks to Swedish, and/or to English
+    # and also be accessible to other languages
+    lang = single_detection(user_message, api_key=os.getenv('TRANSLATOR_KEY'))
+    docs = [f"* {res.page_content} [{res.metadata['url']}]" for res in elastic_vector_search.similarity_search(user_message, k=10)]
+    print(lang)
+    if lang == 'en':
+        multilingual_query = GoogleTranslator(source=lang, target='sv').translate(text=user_message)
+    elif lang == 'sv':
+        multilingual_query = GoogleTranslator(source=lang, target='en').translate(text=user_message)
+    else:
+        multilingual_query = GoogleTranslator(source=lang, target='sv').translate(text=user_message) + " " + GoogleTranslator(source=lang, target='en').translate(text=user_message)
+    print(multilingual_query)
 
-    # get similar documents
-    # docs = vector_store_from_client.similarity_search_by_vector(
-    #     embedding=embedding.embed_query(user_message), k=5
-    # )
-    retriever = vector_store_from_client.as_retriever(
-        search_type="mmr", search_kwargs={"k": 5, "lambda_mult": 0.2}
-    ) # retrieve potentially more docs
-    docs = retriever.invoke(user_message)
-
+    docs += [f"* {res.page_content} [{res.metadata['url']}]" for res in elastic_vector_search.similarity_search(multilingual_query, k=10)]
+    
     if file:
         with open(file, "rb") as image_file:
             encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
@@ -78,10 +85,14 @@ def stream_gemini_response(user_message: str, messages: list, file) -> Iterator[
         ))
     else:
         history.append(HumanMessage(
-            content=f'{user_message if user_message != "" else ""}' + "\n<context>\n" + "".join(["- " + context.page_content + " \n" for context in docs]) + "\n</context>\n" + "\n\nHistory:\n" + "".join([f'{record.content}\n' for record in history]) # TODO: IMPLEMENT HISTORY AS LANGCHAIN MODULE
+            content=f'{user_message if user_message != "" else ""}' + "\n<context>\n" + "".join(["- " + context + " \n" for context in docs]) + "\n</context>\n" + "\n\nHistory:\n" + "".join([f'{record.content}\n' for record in history]) # TODO: IMPLEMENT HISTORY AS LANGCHAIN MODULE
         ))
 
+    print("This is being sent to GEMINI ... ********************************")
+    print("********************************")
     print(history[-1].content)
+    print("********************************")
+    print("********************************")
 
     response = ""
     for chunk in llm.stream([history[-1]]):
@@ -160,7 +171,7 @@ seafoam = Seafoam()
 
 with gr.Blocks(theme=seafoam, fill_height=True) as demo:
     history = [
-        SystemMessage(content="""You are an assistant bot that is to discuss about the city of Uppsala in Sweden. Your objective is to give accurate and up-to-date information to the user, who is aiming to get to know to attend events or explore places in Uppsala, and have a wonderful time in their visit. You are providing information and/or data only about the city of Uppsala, and should not endorse other cities in the country of Sweden. Use the context below also to help you answer. If the context doesn't contain any relevant information to the question about Uppsala, don't make something up and just say that you do not know.""")
+        SystemMessage(content="""You are an assistant bot that is to discuss about the city of Uppsala in Sweden. Your objective is to give accurate and up-to-date information to the user, who is aiming to get to know to attend events or explore places in Uppsala, and have a wonderful time in their visit. You are providing information and/or data only about the city of Uppsala, and should not endorse other cities in the country of Sweden. Use the context below also to help you answer. If the context doesn't contain any relevant information to the question about Uppsala, don't make something up and just say that you do not know. If there are important URLs to tourism websites or portals that you can retrieve from your provided context, you can guide users to those websites so that they can view more.""")
     ]
 
     image = gr.Image(
