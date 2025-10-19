@@ -7,19 +7,10 @@ import os, time
 from dotenv import load_dotenv
 from langchain_google_genai._common import GoogleGenerativeAIError
 load_dotenv() # should make a .env file, and store GEMINI_API_KEY=AIe4...
-# from sentence_transformers import SentenceTransformer
+
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 embedding = HuggingFaceEmbeddings(model_name="google/embeddinggemma-300m")
 
-# from langchain_chroma import Chroma
-# vector_store = Chroma(
-#     persist_directory='./webscr_chunks_chromadb',
-#     embedding_function=HuggingFaceEmbeddings(model_name="google/embeddinggemma-300m")
-#     # GoogleGenerativeAIEmbeddings(
-#     #     model="models/gemini-embedding-001", 
-#     #     google_api_key=os.getenv('GEMINI_API_KEY')
-#     # )
-# )
 from langchain_elasticsearch import ElasticsearchStore
 from langchain_elasticsearch import DenseVectorStrategy
 
@@ -30,11 +21,6 @@ vector_store = ElasticsearchStore(
     embedding=embedding,
     strategy=DenseVectorStrategy(hybrid=True)
 )
-
-# TODO
-def ocr_uppsala_brochure_analyzer():
-    # pdf parsing from https://destinationuppsala.se/wp-content/uploads/2025/09/besokskarta-destination-uppsala-2025.pdf
-    pass
 
 def webscr_metadata_extractor(record, metadata):
     metadata["title"] = record.get("title") # These are also important fields that should be added
