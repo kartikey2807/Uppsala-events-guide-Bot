@@ -12,7 +12,7 @@ from deep_translator import GoogleTranslator, single_detection
 import gradio as gr, os
 from gradio import ChatMessage
 from PIL import Image
-import chromadb
+#import chromadb
 
 from langchain_community.document_loaders import JSONLoader
 from langchain_google_genai import ChatGoogleGenerativeAI  
