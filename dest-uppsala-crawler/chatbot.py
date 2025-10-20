@@ -41,6 +41,9 @@ Example:
 )
 
 # Connect to Elastic Vector store
+# References:
+#   https://python.langchain.com/api_reference/elasticsearch/vectorstores/langchain_elasticsearch.vectorstores.ElasticsearchStore.html
+#   https://python.langchain.com/docs/integrations/vectorstores/elasticsearch/
 elastic_vector_search = ElasticsearchStore(
     es_cloud_id=os.getenv('ELASTIC_CLOUD_ID'),
     es_api_key=os.getenv('ELASTIC_API_KEY'),
