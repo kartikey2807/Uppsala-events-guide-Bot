@@ -1,5 +1,6 @@
-## Visit Uppsala - Guide Chatbot
-Group 4 - 1RT730 LLMs and Societal Consequences of AI - Project
+## Visit Uppsala - Guide Chatbot &nbsp; [![Open in Spaces](https://huggingface.co/datasets/huggingface/badges/resolve/main/open-in-hf-spaces-md.svg)](https://huggingface.co/spaces/adityak714/visit-uppsala)
+
+Group 4 - 1RT730 LLMs and Societal Consequences of AI - Project 
 
 <img width="1522" height="877" alt="Screenshot 2025-10-19 at 20 05 44" src="https://github.com/user-attachments/assets/810968ae-9737-4e71-8e84-a6840435242d" />
 <img width="1526" height="667" alt="Screenshot 2025-10-19 at 04 55 03" src="https://github.com/user-attachments/assets/d41223fd-d48c-4462-b3e1-afdad1f920e3" />
